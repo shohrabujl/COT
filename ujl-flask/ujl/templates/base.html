@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>{% block title %}UJL Plan Control Center{% endblock %}</title>
+<script src="{{ url_for('static', filename='theme.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+{% block body %}
+<header class="top">
+  <b class="brand">🧵 UJL Plan Control Center</b>
+  <span class="chip info">As of {{ asof }}</span>
+  <span class="sp"></span>
+  <span class="chip {{ 'ok' if g.user.role == SUPER else '' }}">{{ g.user.role }}</span>
+  <a class="who" href="{{ url_for('main.account') }}" title="Change your password">{{ g.user.name }}</a>
+  <button class="btn sec" type="button" data-act="theme" aria-label="Toggle light or dark theme">◐</button>
+  <form method="post" action="{{ url_for('auth.logout') }}">{{ csrf_input() }}<button class="btn sec" type="submit">Sign out</button></form>
+</header>
+<div class="shell">
+  <nav class="nav" aria-label="Sections">
+    {% for n in nav %}<a href="{{ url_for(n.ep) }}" class="{{ 'on' if n.on else '' }}"{% if n.on %} aria-current="page"{% endif %}><span aria-hidden="true">{{ n.icon }}</span><em>{{ n.label }}</em></a>{% endfor %}
+  </nav>
+  <main class="main">
+    {% for cat, msg in get_flashed_messages(with_categories=true) %}<div class="flash {{ cat }}" role="status">{{ msg }}</div>{% endfor %}
+    {% block main %}{% endblock %}
+  </main>
+</div>
+{% endblock %}
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block main %}
+<div class="seg">
+  {% if can('users.manage') %}<a href="{{ url_for('admin.users') }}" class="{{ 'on' if request.endpoint == 'admin.users' else '' }}">Users</a>{% endif %}
+  {% if g.user.role == SUPER %}<a href="{{ url_for('admin.permissions') }}" class="{{ 'on' if request.endpoint == 'admin.permissions' else '' }}">Permissions</a>{% endif %}
+  {% if can('audit.view') %}<a href="{{ url_for('admin.audit_page') }}" class="{{ 'on' if request.endpoint == 'admin.audit_page' else '' }}">Audit log</a>{% endif %}
+  {% if can('settings.edit') %}<a href="{{ url_for('admin.settings') }}" class="{{ 'on' if request.endpoint == 'admin.settings' else '' }}">Settings</a>{% endif %}
+</div>
+{% block admin %}{% endblock %}
+{% endblock %}

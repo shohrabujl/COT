@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Health · UJL Plan Control Center{% endblock %}
+{% block main %}
+<section class="card">
+  <h3>{{ 'Import' if can('import.run') else 'Sources' }}</h3>
+  <p class="mute">Plan: {{ meta.plan_file or 'none' }}{% if meta.plan_at %} · loaded {{ meta.plan_at|local_time }}{% endif %}<br>Master: {{ meta.master_file or 'none' }}{% if meta.master_at %} · loaded {{ meta.master_at|local_time }}{% endif %}</p>
+  {% if can('import.run') %}
+  <form method="post" action="{{ url_for('main.import_upload') }}" enctype="multipart/form-data">
+    {{ csrf_input() }}
+    <label class="drop">Choose an Excel workbook (.xlsx) with the plan sheet and/or the PF master sheet<br><input type="file" name="file" accept=".xlsx,.xlsm" required></label>
+    <button class="btn" type="submit">Read file</button>
+  </form>
+  {% if imp %}
+  <hr>
+  <form method="post" action="{{ url_for('main.import_commit') }}">
+    {{ csrf_input() }}<input type="hidden" name="token" value="{{ token }}">
+    <p><b>{{ imp_file }}</b>: tick what to load.</p>
+    {% if imp.plan %}<div class="hc"><input type="checkbox" name="use_plan" value="1" checked aria-label="Import the plan"><div><b>Plan</b> · sheet “{{ imp.plan.sheet }}” · {{ imp.plan.recognised }} of {{ imp.plan.total }} columns recognised · {{ imp.plan.rows|length|fmt }} rows<div class="mute">{{ imp.plan.info or '' }}</div></div></div>{% endif %}
+    {% if imp.master %}<div class="hc"><input type="checkbox" name="use_master" value="1" checked aria-label="Import the PF master"><div><b>PF master</b> · sheet “{{ imp.master.sheet }}” · {{ imp.master.recognised }} of {{ imp.master.total }} columns recognised · {{ imp.master.rows|length|fmt }} rows<div class="mute">{{ imp.master.info or '' }}</div></div></div>{% endif %}
+    {% if imp.cards %}<div class="hc"><input type="checkbox" name="use_cards" value="1"{{ ' checked' if fresh.cards else '' }} aria-label="Import saved Kanban cards"><div><b>Saved Kanban cards</b> · {{ imp.cards.locked }} locked, {{ imp.cards.overrides }} priority overrides<div class="mute">Replaces the card settings now in the app{{ '' if fresh.cards else ' (the app already has some, so this is off)' }}.</div></div></div>{% endif %}
+    {% if imp.linewise %}<div class="hc"><input type="checkbox" name="use_linewise" value="1"{{ ' checked' if fresh.linewise else '' }} aria-label="Import line-wise rows"><div><b>Line-wise rows</b> · {{ imp.linewise.rows|length }} rows<div class="mute">Replaces the line-wise rows now in the app{{ '' if fresh.linewise else ' (the app already has some, so this is off)' }}.</div></div></div>{% endif %}
+    <div class="row"><button class="btn" type="submit">Commit import</button><button class="btn sec" type="submit" formaction="{{ url_for('main.import_cancel') }}" formnovalidate>Cancel</button></div>
+  </form>
+  {% endif %}
+  {% endif %}
+</section>
+{% if not s %}{% include '_empty.html' %}{% else %}
+<section class="card"><h3>Data health checks</h3>
+  {% for h in s.health %}<div class="hc"><span class="chip {{ h.status }}">{{ h.status }}</span><div><b>{{ h.id }}. {{ h.label }}</b> · {{ h.result }}<div class="mute">{{ WHY[h.id] }}</div></div></div>{% endfor %}
+</section>
+<div class="grid2">
+  <section class="card"><h3>PFs missing from master</h3>
+    <div class="tw"><table><thead><tr><th>PF<th>Buyer<th>Lines<th>Plan pcs<th>First sew</tr></thead><tbody>
+    {% for x in s.reports.missing %}<tr><td>{{ x.pf }}<td>{{ x.buyer }}<td>{{ x.lines }}<td>{{ x.pcs|fmt }}<td>{{ (x.first|dstr) if x.first < 100000 else '' }}</tr>{% else %}<tr><td colspan="5" class="mute">None</tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  <section class="card"><h3>Process variant mix <small>PFs in master</small></h3>
+    {% for op in OPS %}<p><b>{{ op }}</b> {% for k, n in s.reports.variants.items() if k.startswith(op ~ '|') %}<span class="chip {{ '' if k.split('|')[1] in VARIANTS[op] else 'warn' }}">{{ k.split('|')[1] }} {{ n }}</span> {% endfor %}</p>{% endfor %}
+  </section>
+</div>
+<section class="card"><h3>Date conflicts <small>{{ s.reports.conflicts|length }} rows</small></h3>
+  <div class="tw"><table><thead><tr><th>Raw row<th>Line<th>PF<th>Sew in<th>Sew end<th>BPO<th>Issue</tr></thead><tbody>
+  {% for x in s.reports.conflicts[:100] %}<tr><td>{{ x.raw_row }}<td>{{ x.line }}<td>{{ x.pf }}<td>{{ x.sew_in|dstr }}<td>{{ x.sew_end|dstr }}<td>{{ x.bpo|dstr }}<td><span class="chip warn">{{ x.date_check }}</span></tr>{% else %}<tr><td colspan="7" class="mute">None</tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endif %}
+{% endblock %}

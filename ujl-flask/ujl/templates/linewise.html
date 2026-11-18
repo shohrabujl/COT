@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Line-wise · UJL Plan Control Center{% endblock %}
+{% macro inp(it, k, type, ed, cls='') -%}
+{%- if ed -%}<input{% if cls %} class="{{ cls }}"{% endif %} type="{{ type }}"{% if type == 'number' %} step="any" min="0"{% endif %} data-k="{{ k }}" value="{{ it.v[k] }}" aria-label="{{ k|replace('_', ' ') }}">
+{%- else -%}{{ it.show[k] }}{%- endif -%}
+{%- endmacro %}
+{% block main %}
+{% if not s %}{% include '_empty.html' %}{% else %}
+<div class="filters">
+  {% if can_edit %}<form method="post" action="{{ url_for('main.lw_add') }}" class="inline">{{ csrf_input() }}<button class="btn" type="submit">Add row</button></form>{% endif %}
+  {% if can('export.csv') %}<a class="btn sec" href="{{ url_for('main.linewise_csv') }}">Export CSV</a>{% endif %}
+  <span class="mute">As of {{ as_of|dstr }} · {{ '%g'|format(st.hours) }} h/day · aging alert after {{ '%g'|format(st.aging_days) }} days</span>
+</div>
+<section class="card"><div class="tw"><table id="lw"><thead><tr><th>Line<th>PF<th>Manpower<th>SMV<th>Eff %<th>Actual input<th>Area<th>Total input<th>Total output<th>Ready<th>Status<th>Plan qty<th>Days since plan<th>Days running<th>Max target<th>Today target<th>WIP<th>Completion<th>Balance<th>Remarks{% if can_edit %}<th>{% endif %}</tr></thead><tbody>
+{% for it in items %}{% set r = it.r %}{% set c = it.cells %}
+<tr data-id="{{ r.id }}">
+<td>{% if can_edit %}<select class="w" data-k="line" aria-label="Line">{% for l in (lines if r.line in lines else lines + [r.line]) %}<option{{ ' selected' if r.line == l else '' }}>{{ l }}</option>{% endfor %}</select>{% else %}{{ r.line }}{% endif %}
+<td>{{ inp(it, 'pf', 'text', can_edit) }}<td>{{ inp(it, 'manpower', 'number', can_edit) }}<td>{{ inp(it, 'smv', 'number', can_edit) }}<td>{{ inp(it, 'eff', 'number', can_edit) }}<td>{{ inp(it, 'actual_input', 'date', can_edit, 'w') }}
+<td>{% if can_edit %}<select class="w" data-k="area" aria-label="Area">{% for a in AREAS %}<option{{ ' selected' if r.area == a else '' }}>{{ a }}</option>{% endfor %}</select>{% else %}{{ r.area }}{% endif %}
+<td>{{ inp(it, 'total_input', 'number', can_edit) }}<td>{{ inp(it, 'total_output', 'number', can_edit) }}<td>{{ inp(it, 'ready', 'number', can_edit) }}
+<td data-d="status"><span class="{{ c.status[1] }}">{{ c.status[0] }}</span>
+<td data-d="plan_qty">{{ c.plan_qty[0] }}<td data-d="days_since_plan" class="{{ c.days_since_plan[1] }}">{{ c.days_since_plan[0] }}<td data-d="days_running">{{ c.days_running[0] }}<td data-d="max_target">{{ c.max_target[0] }}<td data-d="today_target">{{ c.today_target[0] }}<td data-d="wip">{{ c.wip[0] }}<td data-d="completion">{{ c.completion[0] }}<td data-d="balance">{{ c.balance[0] }}
+<td>{{ inp(it, 'remarks', 'text', can_edit, 'w') }}
+{% if can_edit %}<td><form method="post" action="{{ url_for('main.lw_delete', rid=r.id) }}" class="inline" data-confirm="Delete this row ({{ r.line }}{% if r.pf %}, PF {{ r.pf }}{% endif %})?">{{ csrf_input() }}<button class="btn sec" type="submit" aria-label="Delete row">✕</button></form>{% endif %}
+</tr>
+{% else %}<tr><td colspan="21" class="mute">No rows yet.{% if can_edit %} Use Add row.{% endif %}</tr>
+{% endfor %}
+<tr><td><b>Total</b><td><td><td><td><td><td><td><b data-t="input">{{ totals.input }}</b><td><b data-t="output">{{ totals.output }}</b><td><b data-t="ready">{{ totals.ready }}</b><td><td><b data-t="plan">{{ totals.plan }}</b><td><td><td><td><b data-t="today">{{ totals.today }}</b><td><b data-t="wip">{{ totals.wip }}</b><td><b data-t="completion">{{ totals.completion }}</b><td><b data-t="balance">{{ totals.balance }}</b><td>{% if can_edit %}<td>{% endif %}</tr>
+</tbody></table></div></section>
+<p class="mute">Max target = manpower × hours × 60 ÷ SMV × efficiency. Totals sit under their own columns. Days since plan counts from the planned sew start; days running counts from the actual input date.</p>
+{% endif %}
+{% endblock %}

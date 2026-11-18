@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}PF master · UJL Plan Control Center{% endblock %}
+{% block main %}
+{% if not s %}{% include '_empty.html' %}{% else %}
+<div class="filters">
+  <form method="get" class="row"><input type="search" name="q" placeholder="Search PF or buyer" value="{{ q }}" aria-label="Search PF or buyer"><button class="btn sec" type="submit">Search</button></form>
+  {% if can_edit %}<form method="post" action="{{ url_for('main.master_add') }}" class="row">{{ csrf_input() }}<input name="pf" inputmode="numeric" pattern="[0-9]{1,9}" placeholder="New PF number" style="width:150px" required aria-label="New PF number"><button class="btn" type="submit">Add PF</button></form>{% endif %}
+  {% if can('export.csv') %}<a class="btn sec" href="{{ url_for('main.master_csv') }}">Export CSV</a>{% endif %}
+</div>
+<p class="mute">{{ total }} PFs{% if total > rows|length %} · first {{ rows|length }} shown{% endif %} · blank process cells are amber, duplicate PFs are red</p>
+<div class="tw"><table id="master"><thead><tr><th>Buyer<th>PF{% for op in OPS %}<th>{{ op }}{% endfor %}<th>Remarks</tr></thead><tbody>
+{% for i, r in rows %}<tr data-pf="{{ r[1] }}"><td>{{ r[0] }}<td class="{{ 'h5' if r[1] in dup else '' }}"><b>{{ r[1] }}</b>
+{% for op in OPS %}{% set j = loop.index0 + 2 %}{% set v = r[j] %}<td class="{{ '' if v else 'h1' }}">{% if can_edit %}<select data-mp="{{ i }}" data-k="{{ j }}" aria-label="{{ op }} for PF {{ r[1] }}"><option value=""></option>{% for x in (VARIANTS[op] if (not v or v in VARIANTS[op]) else VARIANTS[op] + [v]) %}<option{{ ' selected' if x == v else '' }}>{{ x }}</option>{% endfor %}</select>{% else %}{{ v }}{% endif %}{% endfor %}
+<td>{{ r[9] }}</tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+{% endblock %}

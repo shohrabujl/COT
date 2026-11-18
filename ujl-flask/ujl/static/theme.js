@@ -1,0 +1,1 @@
+(function () { try { var t = localStorage.getItem('ujl-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();

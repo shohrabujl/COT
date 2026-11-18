@@ -1,0 +1,15 @@
+{% extends 'admin_base.html' %}
+{% block title %}Settings · UJL Plan Control Center{% endblock %}
+{% block admin %}
+<section class="card"><h3>Rules and settings</h3>
+<form method="post" class="form" style="max-width:440px">{{ csrf_input() }}
+<label>High-variation threshold (processes that differ, 1–7)<input type="number" name="high_var_threshold" min="1" max="7" step="1" required value="{{ st.high_var_threshold }}"></label>
+<label>Working hours per day<input type="number" name="hours" min="1" max="24" step="any" required value="{{ '%g'|format(st.hours) }}"></label>
+<label>Aging alert after (days)<input type="number" name="aging_days" min="0" max="365" step="any" required value="{{ '%g'|format(st.aging_days) }}"></label>
+<label>Blocked card is High priority if it starts within (days)<input type="number" name="urgent_window_days" min="0" max="365" step="1" required value="{{ st.urgent_window_days }}"></label>
+<label>Auto-Ready window (days, 0 = Ready is set by dragging only)<input type="number" name="ready_window_days" min="0" max="30" step="1" required value="{{ st.ready_window_days }}"></label>
+<label>As-of date<select name="as_of_mode"><option value="today"{{ ' selected' if st.as_of_mode == 'today' else '' }}>Today (Bangladesh time)</option><option value="fixed"{{ ' selected' if st.as_of_mode == 'fixed' else '' }}>Fixed date</option></select></label>
+<label>Fixed date (used only when “Fixed date” is chosen)<input type="date" name="as_of_fixed" value="{{ st.as_of_fixed|iso }}"></label>
+<button class="btn" type="submit">Save settings</button>
+</form></section>
+{% endblock %}

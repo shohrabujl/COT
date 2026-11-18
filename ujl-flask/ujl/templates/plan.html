@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Plan · UJL Plan Control Center{% endblock %}
+{% block main %}
+{% if not s %}{% include '_empty.html' %}{% else %}
+<form class="filters" method="get" data-auto>
+  <input type="hidden" name="mode" value="{{ mode }}">
+  <div class="seg"><a href="{{ url_for('main.plan', mode='runs') }}" class="{{ 'on' if mode == 'runs' else '' }}">Runs (line sequence)</a><a href="{{ url_for('main.plan', mode='rows') }}" class="{{ 'on' if mode == 'rows' else '' }}">Clean plan rows</a></div>
+  <select name="line" aria-label="Line"><option value="">All lines</option>{% for l in lines %}<option{{ ' selected' if f.line == l else '' }}>{{ l }}</option>{% endfor %}</select>
+  {% if mode == 'runs' %}
+  <select name="type" aria-label="Changeover type"><option value="">All changeovers</option>{% for t in MIXC %}<option{{ ' selected' if f.type == t else '' }}>{{ t }}</option>{% endfor %}</select>
+  {% else %}
+  <select name="chk" aria-label="Row check"><option value="">All rows</option>{% for t in ['Date conflicts', 'Master issues'] %}<option{{ ' selected' if f.chk == t else '' }}>{{ t }}</option>{% endfor %}</select>
+  {% endif %}
+  <input type="search" name="q" placeholder="Search PF, style, buyer" value="{{ f.q }}" aria-label="Search PF, style or buyer">
+  <button class="btn sec" type="submit">Search</button>
+  {% if can('export.csv') %}<a class="btn sec" href="{{ url_for('main.plan_csv', mode=mode, line=f.line, type=f.type, chk=f.chk, q=f.q) }}">Export CSV</a>{% endif %}
+</form>
+<p class="mute">{{ total }} {{ 'runs' if mode == 'runs' else 'rows' }}{% if total > rows|length %} · first {{ rows|length }} shown, narrow the filters or export CSV{% endif %}</p>
+<div class="tw">
+{% if mode == 'runs' %}
+<table><thead><tr><th>Run<th>Line<th>Seq<th>From PF<th>To PF<th>Buyer<th>Style<th>Plan qty<th>Sew start<th>Sew end<th>Master<th>Chg<th>What changes<th>Type<th>Rank</tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.run_no }}<td>{{ r.line }}<td>{{ r.seq }}<td>{{ r.from_pf }}<td><b>{{ r.to_pf }}</b><td>{{ r.buyer_group }}<td>{{ r.style }}<td>{{ r.plan_qty|fmt }}<td>{{ r.sew_start|dstr }}<td>{{ r.sew_end|dstr }}<td><span class="chip {{ status_cls(r.status) }}">{{ r.status }}</span><td class="{{ ('h' ~ r.changes) if r.changes else '' }}">{{ r.changes if r.changes is not none else '' }}<td class="wc">{{ r.what }}<td><span class="chip {{ TYPE_CLS[r.type] }}">{{ r.type }}</span><td>{{ r.rank if r.rank is not none else '' }}</tr>{% endfor %}
+</tbody></table>
+{% else %}
+<table><thead><tr><th>#<th>Raw row<th>Line<th>Buyer<th>PF<th>As received<th>Style<th>Plan qty<th>Sew in<th>Sew end<th>BPO<th>Date check<th>Master<th>Run</tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.seq }}<td>{{ r.raw_row }}<td>{{ r.line }}<td>{{ r.buyer_group }}<td>{% if r.pf is number %}{{ r.pf }}{% else %}<span class="chip bad">{{ r.pf }}</span>{% endif %}<td>{{ r.pf_as_received }}<td>{{ r.style }}<td>{{ r.plan_qty|fmt }}<td>{{ r.sew_in|dstr }}<td>{{ r.sew_end|dstr }}<td>{{ r.bpo|dstr }}<td>{% if r.date_check %}<span class="chip warn">{{ r.date_check }}</span>{% endif %}<td><span class="chip {{ status_cls(r.status) }}">{{ r.status }}</span><td>{{ r.run_no }}</tr>{% endfor %}
+</tbody></table>
+{% endif %}
+</div>
+{% endif %}
+{% endblock %}

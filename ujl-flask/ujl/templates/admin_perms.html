@@ -1,0 +1,21 @@
+{% extends 'admin_base.html' %}
+{% block title %}Permissions · UJL Plan Control Center{% endblock %}
+{% block admin %}
+<section class="card"><h3>Role permissions</h3>
+<p class="mute">Tick what each role may do. Super User always has everything, including users, permissions and settings.</p>
+<form method="post">{{ csrf_input() }}<input type="hidden" name="do" value="save">
+<div class="tw"><table><thead><tr><th>Permission<th>Super User{% for n, ps in roles %}<th>{{ n }} <small>({{ counts.get(n, 0) }})</small>{% endfor %}</tr></thead><tbody>
+{% for k, label in PERMISSIONS %}<tr><td>{{ label }}<td><input type="checkbox" checked disabled aria-label="Super User: {{ label }}">{% for n, ps in roles %}<td><input type="checkbox" name="perm" value="{{ n }}|{{ k }}"{{ ' checked' if k in ps else '' }} aria-label="{{ n }}: {{ label }}">{% endfor %}</tr>{% endfor %}
+</tbody></table></div>
+<div class="row" style="margin-top:12px"><button class="btn" type="submit">Save permissions</button></div>
+</form>
+<hr>
+<div class="filters">
+<form method="post" class="row">{{ csrf_input() }}<input type="hidden" name="do" value="add"><input name="name" placeholder="New role name" required maxlength="40" aria-label="New role name"><button class="btn sec" type="submit">Add role</button></form>
+<form method="post" class="row" data-confirm="Set Planner, Line Supervisor and Viewer back to their default permissions?">{{ csrf_input() }}<input type="hidden" name="do" value="reset"><button class="btn sec" type="submit">Reset default roles</button></form>
+</div>
+<div class="row"><span class="mute">Delete a role (only when nobody has it):</span>
+{% for n, ps in roles %}<form method="post" class="inline" data-confirm="Delete the role {{ n }}?">{{ csrf_input() }}<input type="hidden" name="do" value="delete"><input type="hidden" name="name" value="{{ n }}"><button class="btn sec" type="submit"{{ ' disabled' if counts.get(n) else '' }}>{{ n }} ✕</button></form>{% endfor %}
+</div>
+</section>
+{% endblock %}

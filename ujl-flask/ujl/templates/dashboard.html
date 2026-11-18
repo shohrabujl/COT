@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard · UJL Plan Control Center{% endblock %}
+{% macro kpi(label, value, sub) %}<div class="card kpi"><div class="l">{{ label }}</div><div class="v">{{ value }}</div><div class="s">{{ sub }}</div></div>{% endmacro %}
+{% block main %}
+{% if not s %}{% include '_empty.html' %}{% else %}
+{% set sm = s.summary %}{% set sg = sm.stages %}{% set r = s.reports %}{% set tot = sm.plan_qty or 1 %}
+<div class="kpis">
+  {{ kpi('Total runs', sm.total_runs, (sm.lines|length) ~ ' lines') }}
+  {{ kpi('Plan qty (pcs)', sm.plan_qty|fmt, 'Done: ' ~ sg['Done'].cards) }}
+  {{ kpi('Running now', sg['Running'].cards, (sg['Running'].pcs|fmt) ~ ' pcs') }}
+  {{ kpi('Data blocked', sg['Data Blocked'].cards, (sg['Data Blocked'].pcs|fmt) ~ ' pcs') }}
+  {{ kpi('High priority', sm.high, 'cards') }}
+</div>
+<div class="grid2">
+  <section class="card"><h3>Stage overview</h3>
+    {% for k in STAGES %}<div class="bar"><span>{{ k }}</span><div class="t"><i style="width:{{ '%.1f'|format(sg[k].pcs / tot * 100) }}%;background:{{ STC[k] }}"></i></div><b>{{ sg[k].cards }} · {{ sg[k].pcs|fmt }} pcs · {{ '%.1f'|format(sg[k].pcs / tot * 100) }}%</b></div>{% endfor %}
+  </section>
+  <section class="card"><h3>Data health</h3>
+    <div class="chips">{% for h in s.health %}<a class="chip {{ h.status }}" href="{{ url_for('main.health') }}" title="{{ h.label }}">{{ h.id }}. {{ h.label }}<small>{{ h.result }}</small></a>{% endfor %}</div>
+  </section>
+</div>
+<section class="card"><h3>Line-wise summary <small>Select a line to open its board</small></h3>
+  <div class="tw"><table><thead><tr><th>Line<th>Runs<th>Plan pcs<th>Running<th>Blocked<th>High priority<th>Done %<th>Changeover mix</tr></thead><tbody>
+  {% for l, x in sm.lines.items() %}<tr class="go" data-href="{{ url_for('main.kanban', line=l) }}"><td><a href="{{ url_for('main.kanban', line=l) }}"><b>{{ l }}</b></a><td>{{ x.runs }}<td>{{ x.pcs|fmt }}<td>{{ x.running }}<td>{{ x.blocked }}<td>{{ x.high }}<td>{{ ((x.done / x.runs * 100)|round|int) if x.runs else 0 }}%<td><div class="mix">{% for t, n in r.mix.get(l, {}).items() %}<i title="{{ t }}: {{ n }}" style="flex:{{ n }};background:{{ MIXC[t] }}"></i>{% endfor %}</div></tr>{% endfor %}
+  </tbody></table></div>
+  <div class="legend">{% for t, c in MIXC.items() %}<span><i style="background:{{ c }}"></i>{{ t }}</span>{% endfor %}</div>
+</section>
+<div class="grid2">
+  <section class="card"><h3>Starting in the next 7 days</h3>
+    {% if r.upcoming %}<div class="tw"><table><tbody>{% for x in r.upcoming[:10] %}<tr><td>{{ x.sew_start|dstr }}<td>{{ x.line }}<td>PF {{ x.to_pf }}<td>{{ x.plan_qty|fmt }} pcs<td><span class="chip {{ TYPE_CLS[x.type] }}">{{ x.type }}</span></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="mute">Nothing scheduled to start.</p>{% endif %}
+  </section>
+  <section class="card"><h3>Top PFs missing from master</h3>
+    {% if r.missing %}<div class="tw"><table><tbody>{% for x in r.missing[:8] %}<tr><td>PF {{ x.pf }}<td>{{ x.buyer }}<td>{{ x.lines }}<td>{{ x.pcs|fmt }} pcs</tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="mute">All PFs are in the master.</p>{% endif %}
+  </section>
+</div>
+<section class="card"><h3>Plan qty by sewing month</h3>
+  {% set mx = ((r.by_month|map(attribute='pcs')|max) if r.by_month else 1) or 1 %}
+  {% for m in r.by_month %}<div class="bar"><span>{{ m.month|mstr }}</span><div class="t"><i style="width:{{ '%.1f'|format(m.pcs / mx * 100) }}%"></i></div><b>{{ m.pcs|fmt }}</b></div>{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

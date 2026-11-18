@@ -1,0 +1,13 @@
+{% extends 'admin_base.html' %}
+{% block title %}Audit log · UJL Plan Control Center{% endblock %}
+{% block admin %}
+<section class="card"><h3>Audit log <small>latest {{ rows|length }} · times in Bangladesh time</small></h3>
+<form class="filters" method="get"><input type="search" name="q" value="{{ q }}" placeholder="Filter by action, user, entity or detail" aria-label="Filter the audit log"><button class="btn sec" type="submit">Filter</button><button class="btn sec" type="submit" name="verify" value="1">Verify chain</button>{% if can('export.csv') %}<a class="btn sec" href="{{ url_for('admin.audit_csv', q=q) }}">Export CSV</a>{% endif %}</form>
+{% if check %}{% if check.ok %}<p class="flash ok">The chain is intact: {{ check.count }} entries. Latest fingerprint <code>{{ check.head[:12] }}</code>. Note it down; if a later check shows a different start, the log was rewritten.</p>
+{% else %}<p class="flash bad">The chain is broken at entry #{{ check.bad_id }}, after {{ check.count - 1 }} good entries. Entries were changed or removed outside the app.</p>{% endif %}{% endif %}
+<div class="tw"><table><thead><tr><th>#<th>Time<th>User<th>Action<th>Entity<th>Detail</tr></thead><tbody>
+{% for a in rows %}<tr><td class="mute">{{ a.id }}<td>{{ a.ts|local_time }}<td>{{ a.username or '' }}<td><span class="chip">{{ a.action }}</span><td>{{ a.entity }}<td class="wc">{{ a.detail }}</tr>{% else %}<tr><td colspan="6" class="mute">Nothing found.</tr>{% endfor %}
+</tbody></table></div>
+<p class="mute">The log is tamper-evident: each entry’s fingerprint covers the one before it, so editing or deleting a line is detected. It cannot stop someone who rewrites the whole database file.</p>
+</section>
+{% endblock %}

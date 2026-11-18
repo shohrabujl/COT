@@ -1,0 +1,29 @@
+{% extends 'admin_base.html' %}
+{% block title %}Users · UJL Plan Control Center{% endblock %}
+{% block admin %}
+<section class="card"><h3>Access requests ({{ pending|length }})</h3>
+{% if pending %}<div class="tw"><table><tbody>
+{% for u in pending %}<tr><td><b>{{ u.name }}</b><div class="mute">{{ u.username }}</div><td class="mute">{{ u.created_at|local_time }}<td>
+<form method="post" action="{{ url_for('admin.user_action', uid=u.id) }}" class="row">{{ csrf_input() }}<select name="role" aria-label="Role for {{ u.name }}">{% for r in roles_all %}<option>{{ r }}</option>{% endfor %}</select><button class="btn" type="submit" name="do" value="approve">Approve</button><button class="btn sec" type="submit" name="do" value="reject">Reject</button></form></tr>{% endfor %}
+</tbody></table></div>{% else %}<p class="mute">No pending requests.</p>{% endif %}
+</section>
+<section class="card"><h3>Add a user</h3>
+<form method="post" action="{{ url_for('admin.user_add') }}" class="row">{{ csrf_input() }}
+<input name="name" placeholder="Full name" required maxlength="60" aria-label="Full name"><input name="username" placeholder="Username" required maxlength="32" aria-label="Username"><input name="password" type="password" placeholder="Temporary password" required minlength="8" maxlength="128" autocomplete="new-password" aria-label="Temporary password"><select name="role" aria-label="Role">{% for r in roles_all %}<option>{{ r }}</option>{% endfor %}</select><button class="btn" type="submit">Add user</button></form>
+<p class="mute">The person chooses their own password at first sign-in.</p>
+</section>
+<section class="card"><h3>Users</h3>
+<div class="tw"><table><thead><tr><th>User<th>Role and status<th>Last sign-in<th>Temporary password<th></tr></thead><tbody>
+{% for u in others %}{% set touch = (u.role != SUPER) or (g.user.role == SUPER) %}
+<tr><td><b>{{ u.name }}</b><div class="mute">{{ u.username }}{% if u.id == g.user.id %} (you){% endif %}</div>
+<td>{% if not touch %}{{ u.role }} <span class="chip">{{ u.status }}</span>
+{% elif u.status == 'rejected' %}<form method="post" action="{{ url_for('admin.user_action', uid=u.id) }}" class="row">{{ csrf_input() }}<span class="chip bad">rejected</span><select name="role" aria-label="Role for {{ u.name }}">{% for r in roles_all %}<option>{{ r }}</option>{% endfor %}</select><button class="btn sec" type="submit" name="do" value="approve">Approve</button></form>
+{% else %}<form method="post" action="{{ url_for('admin.user_action', uid=u.id) }}" class="row">{{ csrf_input() }}<select class="w" name="role" aria-label="Role for {{ u.name }}">{% for r in roles_all %}<option{{ ' selected' if u.role == r else '' }}>{{ r }}</option>{% endfor %}</select><select class="w" name="status" aria-label="Status for {{ u.name }}">{% for x in ['active', 'disabled'] %}<option{{ ' selected' if u.status == x else '' }}>{{ x }}</option>{% endfor %}</select><button class="btn sec" type="submit" name="do" value="save">Save</button></form>{% endif %}
+<td class="mute">{{ (u.last_login|local_time) if u.last_login else 'never' }}
+<td>{% if touch and u.status != 'rejected' %}<form method="post" action="{{ url_for('admin.user_action', uid=u.id) }}" class="row">{{ csrf_input() }}<input type="password" name="password" placeholder="New temporary password" minlength="8" maxlength="128" required autocomplete="new-password" style="width:190px" aria-label="Temporary password for {{ u.name }}"><button class="btn sec" type="submit" name="do" value="reset">Set</button></form>{% endif %}
+<td>{% if touch and u.status != 'active' %}<form method="post" action="{{ url_for('admin.user_action', uid=u.id) }}" class="inline" data-confirm="Remove {{ u.name }}?">{{ csrf_input() }}<button class="btn sec" type="submit" name="do" value="delete">Remove</button></form>{% endif %}
+</tr>{% endfor %}
+</tbody></table></div>
+<p class="mute">Only Super Users can change Super Users. There is always at least one active Super User. Disable a user to stop their access; remove only pending, rejected or disabled accounts.</p>
+</section>
+{% endblock %}

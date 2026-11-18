@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Kanban · UJL Plan Control Center{% endblock %}
+{% macro card(c, mv) %}
+<div class="kc p-{{ c.priority }}" tabindex="0" data-key="{{ c.key }}" data-stage="{{ c.stage }}" data-pcs="{{ c.run.plan_qty|int }}" data-sort="{{ '%08d-%06d'|format(c.run.sew_start or 0, c.run.run_no) }}"{% if mv %} draggable="true"{% endif %}>
+  <div class="kt"><b>{{ c.run.line }} · PF {{ c.run.to_pf }}</b><span><span class="lk" title="Moved manually, stays here until unlocked"{% if not c.locked %} hidden{% endif %}>🔒</span> <span class="mute">{{ c.priority }}</span></span></div>
+  <div class="ks">{{ c.run.buyer_group }} · {{ c.run.plan_qty|fmt }} pcs</div>
+  <div class="ks">{{ c.run.sew_start|dstr }} → {{ c.run.sew_end|dstr }}</div>
+  <div class="kf"><span class="chip {{ TYPE_CLS[c.run.type] }}">{{ c.run.type }}</span>{% if mv %}<span><button type="button" data-mv="-1" aria-label="Move to previous stage">◀</button> <button type="button" data-mv="1" aria-label="Move to next stage">▶</button></span>{% endif %}</div>
+</div>
+{% endmacro %}
+{% block main %}
+{% if not s %}{% include '_empty.html' %}{% else %}
+<form class="filters" method="get" data-auto>
+  <select name="line" aria-label="Line"><option value="">All lines</option>{% for l in lines %}<option{{ ' selected' if f.line == l else '' }}>{{ l }}</option>{% endfor %}</select>
+  <select name="pri" aria-label="Priority"><option value="">All priorities</option>{% for p in PRIORITIES %}<option{{ ' selected' if f.pri == p else '' }}>{{ p }}</option>{% endfor %}</select>
+  <input type="search" name="q" placeholder="Search PF, style, buyer" value="{{ f.q }}" aria-label="Search PF, style or buyer">
+  <button class="btn sec" type="submit">Search</button>
+  {% if s.removed %}<span class="chip warn">{{ s.removed|length }} saved card settings no longer match the plan</span>{% endif %}
+</form>
+<div class="board" id="board" data-can-move="{{ 1 if can_move else 0 }}">
+  {% for st, cs in cols %}
+  <div class="col" data-stage="{{ st }}">
+    <div class="ch"><span>{{ st }}</span><span class="cnt">{{ cs|length }} · {{ cs|sum(attribute='run.plan_qty')|fmt }} pcs</span></div>
+    <div class="list">{% for c in cs %}{{ card(c, can_move) }}{% else %}<p class="mute none">No cards</p>{% endfor %}</div>
+  </div>
+  {% endfor %}
+</div>
+<script type="application/json" id="cards-data">{{ cards|tojson }}</script>
+<div class="ov" id="m" hidden>
+  <div class="md" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <h3><span id="m-title"></span> <span id="m-status" class="chip"></span></h3>
+    <p class="mute" id="m-sub"></p>
+    <p><b id="m-type"></b><br><span class="mute" id="m-what"></span></p>
+    <div class="form">
+      <label>Stage<select id="m-stage"{{ '' if can_move else ' disabled' }}>{% for x in STAGES %}<option>{{ x }}</option>{% endfor %}</select></label>
+      <label>Priority<select id="m-pri"{{ '' if can_edit else ' disabled' }}>{% for x in PRIORITIES %}<option>{{ x }}</option>{% endfor %}</select></label>
+      <label>Owner<input id="m-own" maxlength="80"{{ '' if can_edit else ' disabled' }}></label>
+      <label>Notes<textarea id="m-notes" rows="3" maxlength="1000"{{ '' if can_edit else ' disabled' }}></textarea></label>
+    </div>
+    <p class="mute" id="m-lock"></p>
+    <div class="row">
+      {% if can_move or can_edit %}<button class="btn" type="button" data-act="card-save">Save</button>{% endif %}
+      {% if can_edit %}<button class="btn sec" type="button" data-act="card-unlock" hidden>Unlock (return to auto)</button>{% endif %}
+      <button class="btn sec" type="button" data-act="close">Close</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'auth_base.html' %}
+{% block title %}Request access · UJL Plan Control Center{% endblock %}
+{% block form %}
+<h3>Request access</h3>
+<form method="post" class="form">
+  {{ csrf_input() }}
+  <label>Full name<input name="name" required autofocus maxlength="60" autocomplete="name" value="{{ request.form.get('name', '') }}"></label>
+  <label>Username (3 to 32 letters, digits, dot, dash or underscore)<input name="username" required maxlength="32" autocomplete="username" value="{{ request.form.get('username', '') }}"></label>
+  <label>Password (8 characters or more)<input name="password" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></label>
+  <label>Repeat the password<input name="password2" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></label>
+  <button class="btn" type="submit">Send request</button>
+</form>
+<p class="mute">Already approved? <a href="{{ url_for('auth.login') }}">Sign in</a>.</p>
+{% endblock %}

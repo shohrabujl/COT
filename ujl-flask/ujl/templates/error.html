@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}{{ code }} · UJL Plan Control Center{% endblock %}
+{% block body %}
+<main class="center">
+  <div class="card">
+    <h2>{{ msg }}</h2>
+    {% if g.user %}<a class="btn" href="{{ url_for('main.home') }}">Back to the app</a>{% else %}<a class="btn" href="{{ url_for('auth.login') }}">Go to sign-in</a>{% endif %}
+  </div>
+</main>
+{% endblock %}
