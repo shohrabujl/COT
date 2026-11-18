@@ -5,6 +5,7 @@ import functools
 import hashlib
 import hmac
 import json
+import os
 import re
 import secrets
 import time
@@ -20,16 +21,15 @@ USERNAME_RX = re.compile(r'^[A-Za-z0-9._-]{3,32}$')
 PUBLIC = {'auth.login', 'auth.register', 'auth.setup', 'static'}
 SAFE_METHODS = {'GET', 'HEAD', 'OPTIONS'}
 LOCAL_HOSTS = {'127.0.0.1', 'localhost', '[::1]'}
-FAIL_LIMIT, IP_LIMIT, WINDOW = 5, 40, 15 * 60          # failed sign-ins per username / per address, within 15 minutes
+FAIL_LIMIT, IP_LIMIT, WINDOW = 5, 40, 15 * 60
 CSP = ("default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; "
        "form-action 'self'; frame-ancestors 'none'")
 
 
-# ---------- passwords ----------
 def hash_pw(pw: str) -> str:
     try:
         return generate_password_hash(pw)
-    except (ValueError, AttributeError):                # Python builds without scrypt
+    except (ValueError, AttributeError):
         return generate_password_hash(pw, method='pbkdf2:sha256:600000')
 
 
@@ -37,7 +37,6 @@ _DUMMY = hash_pw('placeholder-password')
 
 
 def check_pw(pw_hash, pw: str) -> bool:
-    """Always does one hash check, so an unknown username takes as long as a wrong password."""
     ok = check_password_hash(pw_hash or _DUMMY, pw)
     return bool(pw_hash) and ok
 
@@ -57,16 +56,16 @@ def user_problem(con, username: str, name: str, pw: str):
         return 'Username: 3 to 32 letters, digits, dot, dash or underscore.'
     if not 2 <= len(name) <= 60:
         return 'Enter your full name (2 to 60 characters).'
-    if con.execute('SELECT 1 FROM users WHERE username=?', (username,)).fetchone():
+    if con.execute('SELECT 1 FROM users WHERE lower(username)=lower(?)', (username,)).fetchone():
         return 'That username is already taken.'
     return pw_problem(username, pw)
 
 
 def make_user(con, username, name, pw, role, status, must_change=0) -> int:
     now = D.utcnow()
-    cur = con.execute('INSERT INTO users(username,name,pw_hash,role,status,must_change,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',
+    cur = con.execute('INSERT INTO users(username,name,pw_hash,role,status,must_change,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?) RETURNING id',
                       (username, name, hash_pw(pw), role, status, must_change, now, now))
-    return cur.lastrowid
+    return cur.fetchone()['id']
 
 
 def has_users(con) -> bool:
@@ -74,12 +73,11 @@ def has_users(con) -> bool:
 
 
 def active_supers(con) -> int:
-    return con.execute("SELECT COUNT(*) c FROM users WHERE role=? AND status='active'", (E.SUPER,)).fetchone()['c']
+    return con.execute('SELECT COUNT(*) c FROM users WHERE role=? AND status=\'active\'', (E.SUPER,)).fetchone()['c']
 
 
-# ---------- sessions and permissions ----------
 def fingerprint(pw_hash: str) -> str:
-    return hashlib.sha256(pw_hash.encode()).hexdigest()[:16]     # a password change ends every other session
+    return hashlib.sha256(pw_hash.encode()).hexdigest()[:16]
 
 
 def sign_in(user) -> None:
@@ -114,7 +112,6 @@ def fail(msg: str, code: int):
 
 
 def needs(*perms):
-    """The user must hold at least one of these permissions."""
     def deco(fn):
         @functools.wraps(fn)
         def wrap(*a, **k):
@@ -134,7 +131,6 @@ def super_only(fn):
     return wrap
 
 
-# ---------- CSRF ----------
 def csrf_token() -> str:
     if 'csrf' not in session:
         session['csrf'] = secrets.token_urlsafe(32)
@@ -145,7 +141,6 @@ def csrf_input() -> Markup:
     return Markup('<input type="hidden" name="csrf_token" value="%s">') % csrf_token()
 
 
-# ---------- login throttling ----------
 def locked_out(con, keys) -> bool:
     cutoff = time.time() - WINDOW
     return any(con.execute('SELECT COUNT(*) c FROM login_attempts WHERE k=? AND ts>?', (k, cutoff)).fetchone()['c'] >= limit for k, limit in keys)
@@ -162,12 +157,17 @@ def clear_failures(con, key: str) -> None:
     con.execute('DELETE FROM login_attempts WHERE k=?', (key,))
 
 
-# ---------- request hooks ----------
 def _host_check():
     host = (request.host or '').lower()
     host = host[:host.index(']') + 1] if host.startswith('[') else host.split(':')[0]
-    if host not in LOCAL_HOSTS:
-        return fail('This app only answers on this computer (127.0.0.1).', 403)
+    if host in LOCAL_HOSTS:
+        return None
+    if os.environ.get('VERCEL') == '1':
+        allowed = {os.environ.get(name, '').split(':')[0].lower() for name in ('VERCEL_URL', 'VERCEL_PROJECT_PRODUCTION_URL') if os.environ.get(name)}
+        allowed.update(item.strip().split(':')[0].lower() for item in os.environ.get('APP_ALLOWED_HOSTS', '').split(',') if item.strip())
+        if host in allowed:
+            return None
+    return fail('This app only answers on its configured host.', 403)
 
 
 def _load_user():

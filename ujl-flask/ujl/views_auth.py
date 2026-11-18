@@ -1,8 +1,6 @@
 """First-run setup, sign-in, registration requests and sign-out."""
 from __future__ import annotations
 
-import sqlite3
-
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, session, url_for
 
 from . import auth
@@ -24,7 +22,6 @@ def _form():
 
 @bp.route('/setup', methods=['GET', 'POST'])
 def setup():
-    """Only works while there are no users: the first person becomes the Super User."""
     workbook = imports.find_workbook(current_app.config['APP_ROOT'], current_app.config['DATA_DIR'])
     if request.method == 'POST':
         name, username, pw, pw2 = _form()
@@ -44,7 +41,7 @@ def setup():
                     with D.tx() as con:
                         done = imports.seed_from_path(con, user, workbook)
                     note = 'Loaded from ' + imports.WORKBOOK_NAME + ': ' + '; '.join(done) + '.'
-                except Exception as e:                      # a bad workbook must not block the first sign-in
+                except Exception as e:
                     why = str(e) if isinstance(e, imports.WorkbookError) else type(e).__name__
                     note = f'Found {imports.WORKBOOK_NAME} but could not read it ({why}). Import it from the Health page.'
             auth.sign_in(user)
@@ -64,7 +61,7 @@ def login():
         if auth.locked_out(con, keys):
             flash('Too many failed attempts. Wait 15 minutes, then try again.', 'bad')
         else:
-            u = con.execute('SELECT * FROM users WHERE username=?', (username,)).fetchone()
+            u = con.execute('SELECT * FROM users WHERE lower(username)=lower(?)', (username,)).fetchone()
             if not auth.check_pw(u['pw_hash'] if u else None, pw):
                 with D.tx() as c:
                     auth.note_failure(c, [k for k, _ in keys])
@@ -101,7 +98,7 @@ def register():
                     auth.make_user(c, username, name, pw, None, 'pending')
                     auth.note_failure(c, [ipkey])
                     D.audit(c, 'auth.register', username, f'Access requested by {name}', None, username=username)
-            except sqlite3.IntegrityError:
+            except D.INTEGRITY_ERRORS:
                 flash('That username is already taken.', 'bad')
                 return render_template('register.html')
             flash('Request sent. You can sign in once a Super User approves it.', 'ok')

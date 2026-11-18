@@ -1,4 +1,4 @@
-"""UJL Plan Control Center - local Flask app (SQLite + openpyxl). Every business rule lives in ujl/engine.py."""
+"""UJL Plan Control Center - Flask app with local SQLite or persistent PostgreSQL."""
 from __future__ import annotations
 
 import os
@@ -11,6 +11,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _secret_key(data_dir: str) -> str:
+    configured = os.environ.get('SECRET_KEY')
+    if configured:
+        if len(configured) < 32:
+            raise RuntimeError('SECRET_KEY must be at least 32 characters long.')
+        return configured
+    if os.environ.get('VERCEL') == '1':
+        raise RuntimeError('Set SECRET_KEY (at least 32 random characters) in Vercel project settings.')
     path = os.path.join(data_dir, 'secret.key')
     if os.path.isfile(path):
         with open(path, encoding='ascii') as f:
@@ -28,11 +35,13 @@ def _secret_key(data_dir: str) -> str:
 
 
 def create_app(data_dir=None) -> Flask:
+    is_vercel = os.environ.get('VERCEL') == '1'
     data_dir = data_dir or os.environ.get('UJL_DATA') or os.path.join(ROOT, 'data')
     os.makedirs(data_dir, exist_ok=True)
     app = Flask(__name__)
-    app.config.update(DATA_DIR=data_dir, DB_PATH=os.path.join(data_dir, 'ujl.db'), APP_ROOT=ROOT, MAX_CONTENT_LENGTH=25 * 1024 * 1024,
-                      SESSION_COOKIE_NAME='ujl_session', SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax',
+    app.config.update(DATA_DIR=data_dir, DB_PATH=os.path.join(data_dir, 'ujl.db'), DATABASE_URL=os.environ.get('DATABASE_URL'),
+                      APP_ROOT=ROOT, MAX_CONTENT_LENGTH=25 * 1024 * 1024, SESSION_COOKIE_NAME='ujl_session',
+                      SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_SECURE=is_vercel,
                       PERMANENT_SESSION_LIFETIME=timedelta(hours=12))
     app.secret_key = _secret_key(data_dir)
 

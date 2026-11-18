@@ -1,32 +1,31 @@
-# UJL Plan Control Center (runs on your PC)
+# UJL Plan Control Center
 
-The plan workbook as a web app: sign-in, Super User approval, role permissions, audit log, dashboard, Kanban board, plan views, data health, line-wise tracking and the PF master. All rules live in `ujl/engine.py`.
+The plan workbook as a web app: sign-in, Super User approval, role permissions, audit log, dashboard, Kanban board, plan views, data health, line-wise tracking and the PF master.
 
-## Start
-1. Install Python 3.9 or newer once from python.org. Tick **Add python.exe to PATH**.
-2. Double-click **start.bat**. The first start installs Flask and openpyxl (needs internet once). The browser opens at http://127.0.0.1:5000.
-3. First screen: create the **Super User**. If `UPDATE_PLAN_MASTER_ANALYSIS.xlsx` is in this folder it loads by itself (plan, PF master, saved cards, line-wise rows). If not, open **Health** and import it.
+## Run locally
+1. Install Python 3.9 or newer.
+2. Double-click `start.bat` (Windows) or run `./start.sh` (macOS/Linux).
+3. On first run, create the Super User. The app uses SQLite under `data/` by default.
 
-Close the black window to stop the app. Mac or Linux: run `./start.sh`.
+## Deploy on Vercel with PostgreSQL
+This project supports Vercel Functions with a persistent PostgreSQL database. **Do not deploy with local SQLite as the production database**: Vercel's function filesystem is ephemeral.
 
-## Everyday use
-- **Monthly plan:** Health → choose the workbook → Read file → tick what to load → Commit. Plan and PF master are replaced; saved cards and line-wise rows stay unless you tick them.
-- **New people:** they choose *Request access* on the sign-in page. A Super User approves them in Admin → Users and picks a role.
-- **Roles:** Super User, Planner, Line Supervisor, Viewer. Edit them in Admin → Permissions (Super User only), or add your own roles.
-- **Practice first:** `python tests/sample.py practice.xlsx` makes a small workbook you can import to try everything.
+1. Create a PostgreSQL database with a provider such as Neon. Copy its pooled or direct connection URL; it must be a PostgreSQL URL (`postgresql://...`).
+2. In Vercel, import this GitHub repository and set **Root Directory** to `ujl-flask`.
+3. Add these environment variables to the Vercel project (Production and Preview as appropriate):
+   - `DATABASE_URL`: the PostgreSQL connection URL.
+   - `SECRET_KEY`: a long random secret (at least 32 characters). Generate one with `python -c "import secrets; print(secrets.token_hex(32))"`.
+   - `APP_ALLOWED_HOSTS`: optional comma-separated custom hostnames if using a custom domain.
+4. Deploy. The database schema and default roles are initialized on startup. Visit the deployed site and create the first Super User.
+5. Upload the Excel workbook from the app's Health page. The local PC workbook and `data/ujl.db` are not deployed or migrated automatically.
 
-## Your data
-- `data/ujl.db` holds everything, `data/secret.key` signs sessions. To back up, close the app and copy the `data` folder.
-- Keep this folder on the PC's own disk, not inside OneDrive or Google Drive sync.
-- To update the program, replace everything except the `data` folder.
-- Forgot the only Super User password: `.venv\Scripts\python manage.py reset-password USERNAME`
+The Vercel deployment accepts its current deployment hostname and production hostname, plus any names in `APP_ALLOWED_HOSTS`. Set the environment variables for Preview too if you want preview deployments to use the database; consider a separate preview database.
 
-## What protects it
-- Only this PC can open it (127.0.0.1), and it refuses other host names.
-- Passwords are stored hashed. Five wrong passwords lock that username for 15 minutes. Every form is protected against forged requests.
-- Permissions are checked on the server for every action, not just hidden in the page. Only a Super User can change Super Users or the permission table, so nobody can give themselves more.
-- The audit log is tamper-evident: each entry’s fingerprint covers the one before it, and **Verify chain** finds edited or deleted lines. It cannot stop someone who rewrites the whole database file, and anyone who can copy files on this PC can read `data/ujl.db`. Do not publish this app on a network without extra hardening (HTTPS, a real web server).
+### Important data and security notes
+- The first account created on the deployed instance becomes the Super User; secure the URL and do this promptly.
+- Use a separate production database and secret from development/preview environments.
+- Back up PostgreSQL regularly. Existing local SQLite data must be migrated separately; don't delete or overwrite your local `data/` folder.
+- Vercel functions are serverless and may handle requests concurrently. PostgreSQL is used for durable shared state and a transaction-scoped lock protects the audit chain.
 
 ## Checks
-- `.venv\Scripts\python -m unittest discover -s tests` runs 50 tests on a temporary database.
-- `python tests/parity.py UPDATE_PLAN_MASTER_ANALYSIS.xlsx` compares the engine with the workbook (59 checks).
+Run `python -m unittest discover -s tests -v` from this directory. Tests use temporary local SQLite databases.
